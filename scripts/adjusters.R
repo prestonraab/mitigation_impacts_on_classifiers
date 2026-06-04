@@ -438,11 +438,12 @@ BATCH_CORRECTION_METHODS <- list(
   },
 
   recombat_sup = function(dat, dat_test, batch, group, ...) {
-    dat_corrected <- adjust_recombat_sup(dat, batch, group)
-    combined      <- cbind(dat_corrected, dat_test)
-    corrected     <- adjust_recombat(combined, c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test))))
-    list(dat_corrected      = corrected[, 1:ncol(dat), drop = FALSE],
-         dat_test_corrected = corrected[, (ncol(dat) + 1):ncol(corrected), drop = FALSE])
+    dat_corrected  <- adjust_recombat_sup(dat, batch, group)
+    combined       <- cbind(dat_corrected, dat_test)
+    combined_batch <- c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test)))
+    combined_bc    <- ComBat(combined, batch = combined_batch, mod = NULL, ref.batch = 1L)
+    list(dat_corrected      = dat_corrected,
+         dat_test_corrected = combined_bc[, (ncol(dat_corrected) + 1):ncol(combined_bc), drop = FALSE])
   },
 
   coconut = function(dat, dat_test, batch, group, ...) {

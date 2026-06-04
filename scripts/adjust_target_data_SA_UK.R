@@ -749,9 +749,8 @@ apply_batch_correction <- function(dat, batch, group, dat_test, method, group_te
     }
     combined_dat <- cbind(dat_corrected, dat_test)
     combined_batch <- c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test)))
-    combined_corrected <- adjust_recombat(combined_dat, combined_batch, debug = FALSE)
-    dat_corrected <- combined_corrected[, 1:ncol(dat), drop = FALSE]
-    dat_test_corrected <- combined_corrected[, (ncol(dat) + 1):ncol(combined_corrected), drop = FALSE]
+    combat_combined <- ComBat(combined_dat, batch = combined_batch, mod = NULL, ref.batch = 1L)
+    dat_test_corrected <- combat_combined[, (ncol(dat_corrected) + 1):ncol(combat_combined), drop = FALSE]
     return(list(dat_corrected = dat_corrected, dat_test_corrected = dat_test_corrected))
 
   } else if (method == "coconut") {
