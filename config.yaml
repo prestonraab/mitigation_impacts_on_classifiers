@@ -1,0 +1,104 @@
+# config.yaml
+
+# Base folder for all final outputs, logs, and intermediate results
+output_folder: "results"  # override with OUTPUT_FOLDER in .env for a custom absolute path
+
+# Folder containing input data
+data_folder: "data"
+
+scripts_folder: "scripts"
+
+batch_effect_variances: [1, 3, 5]
+batch_effect_means: [0.1, 3, 5, 10]
+num_datasets: [2, 3, 4, 5]
+
+classifiers: 
+  - "elasticnet"
+  - "svm"
+  - "rf"
+  - "nnet"
+  - "knn"
+  - "xgboost"
+  - "shrinkageLDA"
+
+adjusters:
+  - "unadjusted"
+  - "naive"
+  - "rank_samples"
+  - "rank_twice"
+  - "npn"
+  - "combat"
+  - "combat_mean"
+  - "combat_sup"
+  - "mnn"
+  - "fast_mnn"
+  - "ruvg"
+  - "yugene"
+  - "cublock"
+  - "angel"
+  - "tdm"
+  - "rnabc"
+  - "shambhala2"
+  - "coconut"
+  - "rankin"
+  - "recombat"
+  - "recombat_sup"
+
+# Subset of adjusters to visualize (within_study_cv is always included as baseline)
+viz_adjusters:
+  - "within_study_cv"
+  - "unadjusted"
+  - "naive"
+  - "rank_samples"
+  - "rank_twice"
+  - "npn"
+  - "combat"
+  - "combat_mean"
+  - "combat_sup"
+  - "mnn"
+  - "fast_mnn"
+  - "ruvg"
+  - "yugene"
+  - "cublock"
+  - "tdm"
+  - "rnabc"
+  - "shambhala2"
+  - "coconut"
+  - "rankin"
+  - "recombat"
+  - "recombat_sup"
+
+split_seed_start: 42
+split_seed_count: 200
+
+
+# Class imbalance analysis configuration
+class_imbalance_analysis:
+  enabled: true
+  # Classifiers to use for class imbalance analysis (subset of top-level classifiers)
+  classifiers:
+    - "xgboost"
+    - "elasticnet"
+
+  # Adjusters to test across class imbalance levels
+  adjusters:
+    - "unadjusted"
+    - "combat"        # unsupervised
+    - "combat_sup"    # supervised
+    - "coconut"       # supervised (uses test labels)
+    - "naive"
+    - "rank_twice"
+    - "recombat"      # elastic net variant
+    - "recombat_sup"  # elastic net variant, supervised
+    - "rankin"
+  # Random seed for reproducible sampling
+  seed: 123
+  # Imbalance levels to test (as proportions of active TB in high-imbalance training set).
+  # These must be feasible for ALL C(6,2)=15 training pairs. The R script will fail hard
+  # if any pair cannot achieve a level. Symmetric levels (e.g. 0.20 and 0.80) are implicit
+  # since the script applies the inverse to the other training dataset.
+  # Minimum 3 samples per class per dataset is enforced, so very low levels may not work
+  # for pairs with small sample sizes.
+  imbalance_levels: [0.10, 0.20, 0.30, 0.40, 0.50]
+  # Number of replicate random samples per scenario
+  n_replicates: 1

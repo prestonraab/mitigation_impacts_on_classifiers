@@ -1,0 +1,4 @@
+[submodule "Shambhala2"]
+	path = Shambhala2
+	url = https://github.com/prestonraab/Shambhala2_fork.git
+	branch = Shambhala2

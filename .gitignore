@@ -1,0 +1,15 @@
+.pixi/
+.snakemake/
+__pycache__/
+data/*
+!data/README.md
+!data/combined_sub.RData
+!data/GSE107994_sample_info.csv
+!data/GSE107994/
+!data/GSE107994/**
+results/
+.env
+logs/
+*.log
+Rplots.pdf
+core.*

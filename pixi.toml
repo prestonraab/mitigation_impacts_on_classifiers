@@ -1,0 +1,112 @@
+[workspace]
+name = "book_chapter"
+version = "0.1.0"
+description = "Book chapter analysis environment - minimal dependencies"
+channels = ["conda-forge", "bioconda", "r"]
+platforms = ["linux-64"]
+
+[dependencies]
+# === R Base ===
+r-base = ">=4.3"
+cmake = "*"
+pkg-config = "*"
+
+# === Data Manipulation ===
+r-tidyverse = "*"     # Core tidyverse packages (dplyr, purrr, ggplot2, etc.)
+r-reshape2 = "*"      # classify_adjusters.R
+r-readxl = "*"        # 2_TB_getdata.R (data loading)
+r-huge = ">=1.3.5,<2"
+
+# === Machine Learning Classifiers ===
+r-glmnet = "*"        # Lasso, elastic net (classify_*.R)
+r-e1071 = "*"         # SVM (classify_*.R)
+r-ranger = "*"        # Random forest (classify_*.R)
+r-nnet = "*"          # Neural networks (classify_*.R)
+r-class = "*"         # KNN (classify_*.R)
+r-xgboost = "*"       # XGBoost (classify_*.R)
+r-klar = { version = ">=1.7_3,<2", channel = "conda-forge" }
+r-nnls = "*"          # Required by classify_adjusters.R
+r-sda = "*"           # Required by classify_adjusters.R
+                      # RDA (classify_*.R)
+
+# === Statistical Packages ===
+r-rocr = "*"          # Performance metrics (classify_*.R)
+r-dabestr = "*"       # Estimation statistics (generate_*_plot.R)
+
+# === Visualization ===
+r-gridextra = "*"     # Multi-panel plots (generate_*_plot.R)
+r-scales = "*"        # Formatting (generate_main_plot.R)
+r-ggbeeswarm = ">=0.7.2,<0.8"
+r-magick = "*"
+bioconductor-complexheatmap = "*"
+
+# === Dimensionality Reduction ===
+r-umap = "*"          # UMAP (visualize_batch_adjustment.R)
+r-mass = "*"          # LDA (visualize_batch_adjustment.R)
+
+# === Batch Correction (Core) ===
+bioconductor-sva = "*"                      # ComBat (classify_*.R)
+bioconductor-batchelor = "*"                # MNN (classify_*.R)
+bioconductor-summarizedexperiment = "*"     # Data structures (classify_*.R)
+bioconductor-deseq2 = "*"                   # Used in classify_adjusters.R
+bioconductor-ruvseq = "*"                   # RUVr/RUVg official package
+# preprocesscore: no longer used (replaced by limma::normalizeQuantiles in adjust_rnabc)
+
+# === Bioconductor Support ===
+bioconductor-limma = "*"                    # Linear models (classify_batch_effects.R, 2_TB_getdata.R)
+bioconductor-genefilter = "*"     # Gene filtering (classify_batch_effects.R, visualize_*.R)
+
+# === Data Loading ===
+# Only needed for 2_TB_getdata.R (data acquisition script)
+bioconductor-geoquery = { version = "*", channel = "bioconda" }
+"bioconductor-hugene11sttranscriptcluster.db" = { version = "*", channel = "bioconda" }
+
+# === Utilities ===
+r-argparse = "*"      # CLI parsing (all main scripts)
+r-foreach = "*"       # Parallel loops (classify_batch_effects.R)
+r-doparallel = "*"    # Parallel backend (classify_batch_effects.R)
+
+
+# === Workflow ===
+snakemake = ">=9.13.7,<10"
+r-caret = ">=6.0_94,<7"
+octave = ">=10.3.0,<11"
+r-remotes = ">=2.5.0,<3"
+r-devtools = "*"
+r-ragg = "*"
+r-pkgdown = "*"
+r-reticulate = "*"
+bioconductor-mixomics = ">=6.26.0,<7"
+r-coconut = ">=1.0.2,<2"
+unrar = ">=0.4,<0.5"
+libunrar = ">=7.2.5,<8"
+octave-statistics = ">=1.8.2,<2"
+octave-control = "*"
+pandas = "<2.0.0"          # reComBat requires pandas < 2.0.0
+scikit-learn = ">=1.8.0,<2"
+numpy = "*"                # Rank-In Python implementation (scripts/rankin.py)
+snakemake-executor-plugin-slurm = ">=1.4.0,<2"
+
+[pypi-dependencies]
+recombat = ">=0.1.4, <0.2"
+
+[tasks]
+# ============================================================
+# POST-INSTALL TASKS
+# These packages cannot be distributed via conda-forge/PyPI and
+# must be installed once after `pixi install` by running:
+#   pixi run install-rnabc
+#   pixi run install-yugene
+#   pixi run install-tdm
+#
+# NOTE: Shambhala-2 (oncobox-admin/harmony) is NOT an installable
+# R package. The repo ships a compiled HARMONY.tar.gz binary.
+# The open implementation is the local Shambhala2/ git clone,
+# which uses Octave + CuBlock.m and is already present in the repo.
+# ============================================================
+
+install-rnabc = "Rscript -e \"if (!requireNamespace('RNArray', quietly = TRUE)) remotes::install_github('cbligaard/RNArray')\""
+install-yugene = "Rscript -e \"if (!requireNamespace('YuGene', quietly = TRUE)) remotes::install_version('YuGene', version='1.1.5', repos='https://cloud.r-project.org')\""
+install-tdm   = "Rscript -e \"if (!requireNamespace('TDM', quietly = TRUE)) remotes::install_github('greenelab/TDM')\""
+install-gapr  = "Rscript -e \"if (!requireNamespace('GAPR', quietly = TRUE)) install.packages('GAPR', repos='https://cloud.r-project.org')\""
+install-all   = { depends-on = ["install-rnabc", "install-yugene", "install-tdm", "install-gapr"] }
