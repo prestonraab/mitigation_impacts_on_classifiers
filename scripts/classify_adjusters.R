@@ -3,6 +3,18 @@
 # classify_adjusters.R - Single job adjuster comparison script
 # Executes single adjuster × classifier × dataset × seed combination
 
+# Configure reticulate to use the pixi environment Python (needed by recombat)
+local({
+  Sys.setenv(RETICULATE_AUTOCREATE_VENV = "FALSE")
+  Sys.setenv(RETICULATE_MINICONDA_ENABLED = "FALSE")
+  py <- file.path(getwd(), ".pixi/envs/default/bin/python")
+  if (file.exists(py)) {
+    Sys.setenv(RETICULATE_PYTHON = py)
+    if (requireNamespace("reticulate", quietly = TRUE))
+      reticulate::use_python(py, required = TRUE)
+  }
+})
+
 # Suppress warnings and messages for cleaner output
 options(warn = -1)
 options(repos = c(CRAN = "https://cloud.r-project.org"))

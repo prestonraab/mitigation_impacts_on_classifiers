@@ -25,4 +25,4 @@ Output: `data/TB_real_data.RData` — 6 cohorts × 10,695 genes, binary TB/LTBI 
 
 ## Note on combined_sub.RData
 
-The Africa cohort was processed through an edgeR/TMM RNA-seq pipeline externally. The original processing code is not available in this repository. `combined_sub.RData` is included as a fixed input so the full pipeline is reproducible from this repo without re-running that processing step.
+The Africa cohort (GSE79362) was processed through an edgeR/TMM RNA-seq pipeline externally. Samples are identified by SRR accession numbers (NCBI SRA). The file contains four objects: `train_expr` (24391×181), `test_expr` (24391×399), `y_train`, and `y_test`. Only `train_expr` and `y_train` are used by this pipeline. Values appear to be log-CPM floored at 0 (no negative values, unlike the India cohort). The original processing code is not available in this repository. `combined_sub.RData` is included as a fixed input so the full pipeline is reproducible from this repo without re-running that processing step.

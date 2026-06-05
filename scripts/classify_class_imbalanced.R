@@ -72,6 +72,9 @@ base_seed <- args$seed
 imbalance_levels <- as.numeric(strsplit(args$imbalance_levels, ",")[[1]])
 output_file <- args$output
 
+source("scripts/helper.R")
+source("scripts/adjusters.R")
+
 # ====================================================================
 # HELPER FUNCTIONS
 # ====================================================================

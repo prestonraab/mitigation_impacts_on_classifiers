@@ -66,7 +66,6 @@ cat(sprintf("Adjusting with %s (test_study=%s, num_datasets=%s)\n", adjuster, te
 
 # Load helper functions
 source("scripts/helper.R")
-source("scripts/ComBat_nat.R")
 
 # ====================================================================
 # ADJUSTMENT HELPER FUNCTIONS

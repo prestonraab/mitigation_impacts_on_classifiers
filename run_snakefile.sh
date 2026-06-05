@@ -7,7 +7,7 @@
 #SBATCH -J "run_snakefile"   # job name
 #SBATCH -o logs/snake_%A.log
 
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$SLURM_SUBMIT_DIR"
 
 # Load OUTPUT_FOLDER from .env if present
 if [ -f "$REPO_DIR/.env" ]; then
