@@ -82,14 +82,9 @@ rule all:
         class_imbalance_trend_plot=OUTPUT_FOLDER + "/class_imbalance_trend.png" if config.get("class_imbalance_analysis", {}).get("enabled", False) else [],
         sample_counts=OUTPUT_FOLDER + "/sample_counts.csv",
         gapr_heatmap=OUTPUT_FOLDER + "/gapr_heatmap.png",
-        adjuster_similarity=OUTPUT_FOLDER + "/adjuster_similarity.png",
         adjuster_recommendation=OUTPUT_FOLDER + "/adjuster_recommendation.png",
         schematic_matrix=OUTPUT_FOLDER + "/schematic_matrix.png",
         pca_demonstration=OUTPUT_FOLDER + "/pca_demonstration.png",
-        sa_uk_adjusted=expand(
-            OUTPUT_FOLDER + "/adjusted_data/SA_UK/{adjuster}_target.csv",
-            adjuster=config["adjusters"]
-        ),
         all_adjusted=get_all_adjusted_data_combinations()
 
 
@@ -230,27 +225,6 @@ rule make_gapr_heatmap:
         """
         Rscript {input.script} -i {input.data} -o {output} --adjusters {params.adjusters} &> {log}
         """
-# Step 1.3g: Adjuster Similarity Heatmap
-rule make_adjuster_similarity:
-    input:
-        data=OUTPUT_FOLDER + "/adjusters_on_classifiers.csv",
-        script=SCRIPTS_FOLDER + "/plot_adjuster_similarity.R",
-        utils=SCRIPTS_FOLDER + "/adjuster_plot_utils.R"
-    output:
-        OUTPUT_FOLDER + "/adjuster_similarity.png"
-    log:
-        OUTPUT_FOLDER + "/logs/plot_adjuster_similarity.log"
-    threads: 1
-    resources:
-        mem_mb=4000,
-        runtime=10
-    params:
-        adjusters=",".join(config.get("viz_adjusters", config["adjusters"]))
-    shell:
-        """
-        Rscript {input.script} -i {input.data} -o {output} --adjusters {params.adjusters} &> {log}
-        """
-
 
 # Step 1.3h: Adjuster Recommendation Plot (Faceted by Classifier)
 rule make_adjuster_recommendation:
@@ -327,14 +301,13 @@ def get_adjuster_combinations():
 
 # Helper to generate within-study CV combinations
 def get_within_study_cv_combinations():
-    """Generate all valid classifier × n_datasets × test_study combinations for within-study CV"""
+    """Generate all valid classifier × test_study combinations for within-study CV"""
     combinations = []
     for classifier in config["classifiers"]:
-        for n in config["num_datasets"]:
-            for test_study in get_test_studies_for_n(n):
-                combinations.append(
-                    f"{OUTPUT_FOLDER}/results/within_study_cv/individual/{classifier}_{n}_{test_study}.csv"
-                )
+        for test_study in ALL_STUDIES:
+            combinations.append(
+                f"{OUTPUT_FOLDER}/results/within_study_cv/individual/{classifier}_{test_study}.csv"
+            )
     return combinations
 
 # Helper to generate class imbalance scenario names statically from config.
@@ -398,17 +371,25 @@ rule aggregate_adjusters:
 rule classify_adjusters:
     input:
         data=DATA_FOLDER + "/TB_real_data.RData",
-        # script=SCRIPTS_FOLDER + "/classify_adjusters.R",
-        helper=SCRIPTS_FOLDER + "/helper.R"
+        helper=SCRIPTS_FOLDER + "/helper.R",
+        adjusted_data=lambda w: (
+            f"{OUTPUT_FOLDER}/adjusted_data/all_scenarios/{w.adjuster}_n{w.n_datasets}_test{w.test_study}_target.csv"
+            if w.adjuster in ["combat", "combat_sup"]
+            else []
+        )
     output:
         OUTPUT_FOLDER + "/results/adjusters/individual/{adjuster}_{classifier}_{n_datasets}_{test_study}.csv"
     log:
         OUTPUT_FOLDER + "/logs/classify_adjusters/{adjuster}_{classifier}_{n_datasets}_{test_study}.log"
-    # group: "batch_real_group"
     threads: 1
     resources:
         mem_mb=16000,
         runtime=300
+    params:
+        adjusted_data_arg=lambda w, input: (
+            input.adjusted_data if w.adjuster in ["combat", "combat_sup"] and len(input.adjusted_data) > 0
+            else "None"
+        )
     shell:
         """
         Rscript {SCRIPTS_FOLDER}/classify_adjusters.R -o {output} \
@@ -416,6 +397,7 @@ rule classify_adjusters:
             --classifier {wildcards.classifier} \
             --num-datasets {wildcards.n_datasets} \
             --test-study {wildcards.test_study} \
+            --adjusted-data {params.adjusted_data_arg} \
             |& tee {log}
         """
 
@@ -427,22 +409,22 @@ rule classify_within_study_cv:
         script=SCRIPTS_FOLDER + "/classify_within_study_cv.R",
         helper=SCRIPTS_FOLDER + "/helper.R"
     output:
-        OUTPUT_FOLDER + "/results/within_study_cv/individual/{classifier}_{n_datasets}_{test_study}.csv"
+        OUTPUT_FOLDER + "/results/within_study_cv/individual/{classifier}_{test_study}.csv"
     log:
-        OUTPUT_FOLDER + "/logs/within_study_cv/{classifier}_{n_datasets}_{test_study}.log"
-    group: "within_study_cv_group"
+        OUTPUT_FOLDER + "/logs/within_study_cv/{classifier}_{test_study}.log"
     threads: 1
     resources:
         mem_mb=lambda wildcards: 32000 if wildcards.classifier in ["nnet", "logistic"] else 8000,
         runtime=180
     params:
         n_folds=3,
-        n_features=2000  # 0 = use all genes (no feature selection)
+        n_features=2000,  # 0 = use all genes (no feature selection)
+        num_datasets=1  # Within-study CV only uses one dataset
     shell:
         """
         Rscript {input.script} -o {output} \
             --classifier {wildcards.classifier} \
-            --num-datasets {wildcards.n_datasets} \
+            --num-datasets {params.num_datasets} \
             --test-study {wildcards.test_study} \
             --n-folds {params.n_folds} \
             --n-features {params.n_features} \
@@ -524,34 +506,11 @@ rule visualize_batch_adjustment:
         """
 
 
-# Custom pipeline for South Africa vs UK batch adjustment and target datasets
-rule adjust_target_data_SA_UK:
-    input:
-        data=DATA_FOLDER + "/TB_real_data.RData",
-        script=SCRIPTS_FOLDER + "/adjust_target_data_SA_UK.R",
-        helper=SCRIPTS_FOLDER + "/helper.R"
-    output:
-        adjusted_target=OUTPUT_FOLDER + "/adjusted_data/SA_UK/{adjuster}_target.csv"
-    log:
-        OUTPUT_FOLDER + "/logs/adjust_target_data_SA_UK/{adjuster}.log"
-    threads: 1
-    resources:
-        mem_mb=4000,
-        runtime=10
-    shell:
-        """
-        Rscript {input.script} \
-            --adjuster {wildcards.adjuster} \
-            --output-data {output.adjusted_target} \
-            &> {log}
-        """
-
-
 # Save adjusted data for all scenarios (all n_datasets and test_study combinations)
 rule adjust_target_data_all_scenarios:
     input:
         data=DATA_FOLDER + "/TB_real_data.RData",
-        script=SCRIPTS_FOLDER + "/adjust_target_data_SA_UK.R",
+        script=SCRIPTS_FOLDER + "/adjust_target_data_saved.R",
         helper=SCRIPTS_FOLDER + "/helper.R"
     output:
         adjusted_target=OUTPUT_FOLDER + "/adjusted_data/all_scenarios/{adjuster}_n{n_datasets}_test{test_study}_target.csv"

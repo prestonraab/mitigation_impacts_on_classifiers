@@ -13,3 +13,4 @@ logs/
 *.log
 Rplots.pdf
 core.*
+adjusted_data/
