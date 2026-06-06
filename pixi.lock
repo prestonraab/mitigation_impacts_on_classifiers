@@ -595,6 +595,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/r-modelr-0.1.11-r43hc72bb7e_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/r-munsell-0.5.1-r43hc72bb7e_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/r-numderiv-2016.8_1.1-r43hc72bb7e_6.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/r-patchwork-1.3.2-r43hc72bb7e_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/r-pillar-1.11.0-r43hc72bb7e_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/r-pkgbuild-1.4.8-r43hc72bb7e_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/r-pkgconfig-2.0.3-r43hc72bb7e_4.conda
@@ -9407,6 +9408,18 @@ packages:
   purls: []
   size: 127013
   timestamp: 1719752122849
+- conda: https://conda.anaconda.org/conda-forge/noarch/r-patchwork-1.3.2-r43hc72bb7e_0.conda
+  sha256: 732621d9f42c5f15146a2152af09b171e091d42585b6bad48240f86b30dec8dc
+  md5: 247c7ca301ae578147b802ee4e4b6809
+  depends:
+  - r-base >=4.3,<4.4.0a0
+  - r-ggplot2 >=3.0.0
+  - r-gtable
+  license: MIT
+  license_family: MIT
+  purls: []
+  size: 3305808
+  timestamp: 1756153678866
 - conda: https://conda.anaconda.org/conda-forge/noarch/r-pillar-1.11.0-r43hc72bb7e_0.conda
   sha256: 612d2104e30e466439993ee3bf4a3068f5ca81cb3fefa209cd8842ae7820a8ef
   md5: 657672af86f156a821b7a8d5ac88f916
