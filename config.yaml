@@ -42,7 +42,6 @@ adjusters:
   - "coconut"
   - "rankin"
   - "recombat"
-  - "recombat_sup"
 
 # Subset of adjusters to visualize (within_study_cv is always included as baseline)
 viz_adjusters:
@@ -66,7 +65,6 @@ viz_adjusters:
   - "coconut"
   - "rankin"
   - "recombat"
-  - "recombat_sup"
 
 split_seed_start: 42
 split_seed_count: 200
@@ -89,8 +87,7 @@ class_imbalance_analysis:
     - "naive"
     - "rank_twice"
     - "recombat"      # elastic net variant
-    - "recombat_sup"  # elastic net variant, supervised
-    - "rankin"
+
   # Random seed for reproducible sampling
   seed: 123
   # Imbalance levels to test (as proportions of active TB in high-imbalance training set).
