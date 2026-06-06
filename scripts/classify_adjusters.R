@@ -104,7 +104,7 @@ adjuster <- args$adjuster
 classifier <- args$classifier
 num_datasets <- args$num_datasets
 test_study <- args$test_study
-adjusted_data_path <- args$`adjusted-data`
+adjusted_data_path <- args$adjusted_data
 output_file <- args$output
 
 # Validate output directory exists
