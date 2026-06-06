@@ -424,8 +424,9 @@ main_analysis_function <- function() {
   dat_train_norm <- scaled_data$dat_train
   dat_test_norm <- scaled_data$dat_test
 
-  # Save test labels for later use in classifier training
+  # Save labels for later use in classifier training
   group_test <- datasets$group_test
+  group <- datasets$group
   }
 
   # ====================================================================
