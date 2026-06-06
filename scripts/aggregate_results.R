@@ -177,7 +177,7 @@ validate_job_completeness <- function(results_data, input_dir, verbose = FALSE) 
     # Expected parameters from config
     expected_adjusters <- c("unadjusted", "naive", "rank_samples", "rank_twice", "npn", "combat", "mnn", "fast_mnn")
     expected_classifiers <- c("logistic", "elasticnet", "svm", "rf", "knn", "xgboost", "nn", "shrinkageLDA")
-    expected_n_datasets <- c(3, 4, 5, 6)
+    expected_n_datasets <- c(2, 3, 4, 5)
     # For adjusters, we use test_study instead of seed
     all_studies <- c("GSE37250_SA", "USA", "India", "GSE37250_M", "Africa", "GSE39941_M")
     

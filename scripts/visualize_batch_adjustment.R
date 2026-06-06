@@ -33,7 +33,7 @@ args <- parser$parse_args()
 
 # Validate arguments
 valid_adjusters <- c("unadjusted", "naive", "rank_samples", "rank_twice", "npn", "combat", "combat_mean", "combat_sup", "mnn", "fast_mnn", "ruvr", "gmm", "pace_default", "pace_aggressive", "pace_focused", "pace_conservative", "pace_ultra_aggressive", "pace_extreme_aggressive", "pace_iterative_aggressive")
-valid_num_datasets <- c(3, 4, 5, 6)
+valid_num_datasets <- c(2, 3, 4, 5)
 
 if (!args$adjuster %in% valid_adjusters) {
   stop(sprintf("Invalid adjuster '%s'. Must be one of: %s", 

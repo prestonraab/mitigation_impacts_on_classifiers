@@ -101,6 +101,8 @@ adjust_npn <- function(matrix_, batch) {
 }
 
 adjust_yugene <- function(matrix_) {
+  if (!requireNamespace("YuGene", quietly = TRUE)) stop("Package 'YuGene' is required.")
+  suppressMessages(library(YuGene))
   result <- YuGene::YuGene(matrix_)
   as.matrix(unclass(result))
 }
@@ -135,6 +137,13 @@ adjust_angel <- function(matrix_) {
 adjust_tdm <- function(dat_train, dat_test) {
   if (!requireNamespace("TDM",        quietly = TRUE)) stop("Package 'TDM' is required.")
   if (!requireNamespace("data.table", quietly = TRUE)) stop("Package 'data.table' is required for TDM.")
+  # Pre-load TDM's runtime dependencies so load_it() doesn't try BiocManager::install()
+  for (pkg in c("data.table", "binr", "scales")) {
+    if (!isNamespaceLoaded(pkg)) tryCatch(
+      suppressMessages(library(pkg, character.only = TRUE)),
+      error = function(e) stop(sprintf("TDM dependency '%s' is not installed: %s", pkg, e$message))
+    )
+  }
   train_dt <- data.table::as.data.table(dat_train, keep.rownames = "gene")
   test_dt  <- data.table::as.data.table(dat_test,  keep.rownames = "gene")
   res_dt   <- TDM::tdm_transform(target_data = test_dt, ref_data = train_dt)
@@ -287,9 +296,9 @@ BATCH_CORRECTION_METHODS <- list(
   },
 
   combat = function(dat, dat_test, batch, ...) {
-    dat_corrected <- ComBat(dat, batch = batch, mod = NULL)
+    dat_corrected <- sva::ComBat(dat, batch = batch, mod = NULL)
     combined      <- cbind(dat_corrected, dat_test)
-    combined_bc   <- ComBat(combined,
+    combined_bc   <- sva::ComBat(combined,
                             batch     = c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test))),
                             mod       = NULL,
                             ref.batch = 1L)
@@ -298,9 +307,9 @@ BATCH_CORRECTION_METHODS <- list(
   },
 
   combat_mean = function(dat, dat_test, batch, ...) {
-    dat_corrected <- ComBat(dat, batch = batch, mod = NULL, mean.only = TRUE)
+    dat_corrected <- sva::ComBat(dat, batch = batch, mod = NULL, mean.only = TRUE)
     combined      <- cbind(dat_corrected, dat_test)
-    combined_bc   <- ComBat(combined,
+    combined_bc   <- sva::ComBat(combined,
                             batch     = c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test))),
                             mod       = NULL, ref.batch = 1L, mean.only = TRUE)
     list(dat_corrected      = dat_corrected,
@@ -308,9 +317,9 @@ BATCH_CORRECTION_METHODS <- list(
   },
 
   combat_sup = function(dat, dat_test, batch, group, ...) {
-    dat_corrected <- ComBat(dat, batch = batch, mod = model.matrix(~group))
+    dat_corrected <- sva::ComBat(dat, batch = batch, mod = model.matrix(~group))
     combined      <- cbind(dat_corrected, dat_test)
-    combined_bc   <- ComBat(combined,
+    combined_bc   <- sva::ComBat(combined,
                             batch     = c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test))),
                             mod       = NULL,
                             ref.batch = 1L)
@@ -348,6 +357,7 @@ BATCH_CORRECTION_METHODS <- list(
 
   ruvr = function(dat, dat_test, batch, group, ...) {
     if (!requireNamespace("RUVSeq", quietly = TRUE)) stop("Package 'RUVSeq' is required.")
+    suppressMessages(library(RUVSeq))
     residuals <- do.call(rbind, lapply(1:nrow(dat), function(i) {
       fit <- lm(dat[i, ] ~ group)
       residuals(fit)
@@ -364,6 +374,7 @@ BATCH_CORRECTION_METHODS <- list(
 
   ruvg = function(dat, dat_test, batch, ...) {
     if (!requireNamespace("RUVSeq", quietly = TRUE)) stop("Package 'RUVSeq' is required.")
+    suppressMessages(library(RUVSeq))
     hk_genes <- intersect(c("PPIA", "YWHAZ", "HPRT1", "RPLP0"), rownames(dat))
     if (length(hk_genes) < 2) {
       warning("Fewer than 2 housekeeping genes found; falling back to unadjusted.")
@@ -441,7 +452,7 @@ BATCH_CORRECTION_METHODS <- list(
     dat_corrected  <- adjust_recombat_sup(dat, batch, group)
     combined       <- cbind(dat_corrected, dat_test)
     combined_batch <- c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test)))
-    combined_bc    <- ComBat(combined, batch = combined_batch, mod = NULL, ref.batch = 1L)
+    combined_bc    <- sva::ComBat(combined, batch = combined_batch, mod = NULL, ref.batch = 1L)
     list(dat_corrected      = dat_corrected,
          dat_test_corrected = combined_bc[, (ncol(dat_corrected) + 1):ncol(combined_bc), drop = FALSE])
   },
@@ -449,7 +460,7 @@ BATCH_CORRECTION_METHODS <- list(
   coconut = function(dat, dat_test, batch, group, ...) {
     dat_corrected <- adjust_coconut(dat, batch, group)
     combined      <- cbind(dat_corrected, dat_test)
-    combined_bc   <- ComBat(combined,
+    combined_bc   <- sva::ComBat(combined,
                             batch     = c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test))),
                             mod       = NULL,
                             ref.batch = 1L)

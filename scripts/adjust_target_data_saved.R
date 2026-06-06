@@ -1,12 +1,10 @@
 #!/usr/bin/env Rscript
 
-# adjust_target_data_SA_UK.R
-# Streamlined script to perform batch correction specifically for GSE37250_SA (South Africa)
-# as reference and India (UK) as target, saving the adjusted target CSV.
-
 # Suppress warnings and messages
 options(warn = -1)
 options(repos = c(CRAN = "https://cloud.r-project.org"))
+# Prevent BiocManager from trying to phone home on compute nodes (no internet)
+options(BiocManager.check_repositories = FALSE)
 
 suppressMessages(suppressWarnings({
   required_packages <- c("argparse", "dplyr", "purrr", "sva", "batchelor", 
@@ -465,8 +463,8 @@ apply_batch_correction <- function(dat, batch, group, dat_test, method, group_te
     ref_batch_id <- 1
     test_batch_id <- 2
     combined_batch <- c(rep(ref_batch_id, ncol(dat_corrected)), rep(test_batch_id, ncol(dat_test)))
-    combined_group <- c(group, group_test)
-    combat_combined <- ComBat(combined_dat, batch=combined_batch, mod=model.matrix(~combined_group), ref.batch=ref_batch_id)
+    # Step 2 is unsupervised: test labels are unavailable at correction time.
+    combat_combined <- ComBat(combined_dat, batch=combined_batch, mod=NULL, ref.batch=ref_batch_id)
     dat_test_corrected <- combat_combined[, (ncol(dat_corrected) + 1):ncol(combat_combined)]
     return(list(dat_corrected = dat_corrected, dat_test_corrected = dat_test_corrected))
 

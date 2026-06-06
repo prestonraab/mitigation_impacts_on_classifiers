@@ -18,6 +18,8 @@ local({
 # Suppress warnings and messages for cleaner output
 options(warn = -1)
 options(repos = c(CRAN = "https://cloud.r-project.org"))
+# Prevent BiocManager from trying to phone home on compute nodes (no internet)
+options(BiocManager.check_repositories = FALSE)
 # Do NOT clear workspace if testing_mode exists
 if (!exists("testing_mode")) {
   rm(list=ls())
@@ -59,6 +61,8 @@ parser$add_argument("--num-datasets", type = "integer", required = TRUE,
                    help = "Number of datasets to include: 3, 4, 5, or 6")
 parser$add_argument("--test-study", type = "character", required = TRUE,
                    help = "Test study name (e.g., GSE37250_SA, USA, India, etc.)")
+parser$add_argument("--adjusted-data", type = "character", default = "",
+                   help = "Path to pre-computed adjusted data (optional, skips batch correction if provided)")
 parser$add_argument("-o", "--output", type = "character", required = TRUE,
                    help = "Output CSV file path")
 
@@ -100,6 +104,7 @@ adjuster <- args$adjuster
 classifier <- args$classifier
 num_datasets <- args$num_datasets
 test_study <- args$test_study
+adjusted_data_path <- args$`adjusted-data`
 output_file <- args$output
 
 # Validate output directory exists
@@ -182,14 +187,55 @@ main_analysis_function <- function() {
   if (!file.exists(data_path)) {
     stop(sprintf("Data file not found: %s", data_path))
   }
-  
+
   load(data_path)
   source("scripts/helper.R")
   source("scripts/adjusters.R")
 
   # ====================================================================
-  # REAL DATA PREPARATION LOGIC
+  # CHECK FOR PRE-COMPUTED ADJUSTED DATA
   # ====================================================================
+
+  use_precomputed <- (adjusted_data_path != "" && adjusted_data_path != "None" && file.exists(adjusted_data_path))
+
+  if (use_precomputed) {
+    cat(sprintf("Loading pre-computed adjusted data from: %s\n", adjusted_data_path))
+
+    # Load pre-computed data (already scaled)
+    dat_test_norm <- as.matrix(read.csv(adjusted_data_path, row.names = 1))
+
+    # Construct and load reference data path
+    adjusted_ref_path <- gsub("_target\\.csv$", "_reference.csv", adjusted_data_path)
+    if (!file.exists(adjusted_ref_path)) {
+      stop(sprintf("Reference data not found: %s", adjusted_ref_path))
+    }
+    dat_train_norm <- as.matrix(read.csv(adjusted_ref_path, row.names = 1))
+
+    cat(sprintf("Loaded pre-computed data: train %d x %d, test %d x %d\n",
+                nrow(dat_train_norm), ncol(dat_train_norm),
+                nrow(dat_test_norm), ncol(dat_test_norm)))
+
+    # Load test labels from original data
+    if (!test_study %in% names(label_lst)) {
+      stop(sprintf("Test study '%s' not found in data", test_study))
+    }
+    group_test <- label_lst[[test_study]]
+    group_test <- ifelse(group_test == "Control" | group_test == "0", 0, 1)
+
+    # Reconstruct training labels from original data to match the training samples in pre-computed data
+    all_studies <- c("GSE37250_SA", "USA", "India", "GSE37250_M", "Africa", "GSE39941_M")
+    train_studies <- all_studies[all_studies != test_study][seq_len(num_datasets)]
+    group <- unlist(lapply(label_lst[train_studies], as.character))
+    group <- ifelse(group == "Control" | group == "0", 0, 1)
+
+    cat(sprintf("Using test study: %s (train: %s)\n", test_study, paste(train_studies, collapse=", ")))
+    cat(sprintf("Test labels loaded: %d TB, %d Control\n", sum(group_test == 1), sum(group_test == 0)))
+    cat(sprintf("Training labels: %d TB, %d Control\n", sum(group == 1), sum(group == 0)))
+
+  } else {
+    # ====================================================================
+    # REAL DATA PREPARATION LOGIC
+    # ====================================================================
   
   filter_studies <- function(dat_lst, label_lst, n_studies, test_study) {
     all_studies <- c("GSE37250_SA", "USA", "India", "GSE37250_M", "Africa", "GSE39941_M")
@@ -377,7 +423,15 @@ main_analysis_function <- function() {
   scaled_data <- global_scale(dat_corrected, dat_test_corrected)
   dat_train_norm <- scaled_data$dat_train
   dat_test_norm <- scaled_data$dat_test
-  
+
+  # Save test labels for later use in classifier training
+  group_test <- datasets$group_test
+  }
+
+  # ====================================================================
+  # DATA VALIDATION (after batch correction or loading precomputed)
+  # ====================================================================
+
   # Validation
   if (any(is.na(dat_train_norm)) || any(is.na(dat_test_norm))) {
     stop("Scaling produced NA values")
@@ -386,12 +440,16 @@ main_analysis_function <- function() {
     stop("Test data became NULL during scaling")
   }
   
-  cat(sprintf("Scaled data dimensions - Train: %d x %d, Test: %d x %d\n", 
+  cat(sprintf("Scaled data dimensions - Train: %d x %d, Test: %d x %d\n",
               nrow(dat_train_norm), ncol(dat_train_norm),
               nrow(dat_test_norm), ncol(dat_test_norm)))
-  
-  cat(sprintf("Batch correction completed successfully\n"))
-  cat(sprintf("  Method: %s\n", adjuster))
+
+  if (!use_precomputed) {
+    cat(sprintf("Batch correction completed successfully\n"))
+    cat(sprintf("  Method: %s\n", adjuster))
+  } else {
+    cat(sprintf("Pre-computed adjusted data loaded successfully\n"))
+  }
   cat(sprintf("  Training data shape: %d x %d\n", nrow(dat_train_norm), ncol(dat_train_norm)))
   cat(sprintf("  Test data shape: %d x %d\n", nrow(dat_test_norm), ncol(dat_test_norm)))
   
@@ -522,7 +580,7 @@ main_analysis_function <- function() {
   cat(sprintf("  Training samples: %d\n", n_train_samples))
   cat(sprintf("  Test samples: %d\n", n_test_samples))
   cat(sprintf("  Features: %d\n", n_features))
-  cat(sprintf("  Training labels: %d unique values\n", length(unique(datasets$group))))
+  cat(sprintf("  Training labels: %d unique values\n", length(unique(group))))
   
   # ====================================================================
   # FEATURE REDUCTION FOR HIGH-DIMENSIONAL DATA
@@ -555,18 +613,18 @@ main_analysis_function <- function() {
 
   
   # Check for class imbalance
-  class_counts <- table(datasets$group)
+  class_counts <- table(group)
   if(min(class_counts) < 3) {
     warning(sprintf("Severe class imbalance detected: %s", paste(names(class_counts), class_counts, sep="=", collapse=", ")))
   }
-  
+
   # Train classifier and evaluate performance
   result <- train_and_evaluate_classifier(
     classifier_type = classifier,
     train_data = dat_train_norm,
-    train_labels = datasets$group,
+    train_labels = group,
     test_data = dat_test_norm,
-    test_labels = datasets$group_test
+    test_labels = group_test
   )
   
   cat("Classification completed successfully\n")

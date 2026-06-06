@@ -97,65 +97,78 @@ data$classifier_label <- factor(
 data <- data %>% filter(!is.na(classifier_label))
 
 # ==============================================================================
-# Define Color Palette (Logic from Snippet 1)
+# Compute Adjuster Colors via K-Means on Interaction Embeddings
+# (Mirrors plot_gapr_heatmap.R preprocessing)
 # ==============================================================================
 
-group_highlight_1 <- c("Within-Study CV")
-group_highlight_2 <- c("ComBat Sup.")
-group_highlight_3 <- c("Coconut")
-group_aggregate_1 <- c("ReComBat", "CuBlock", "ComBat", "ComBat Mean", "NPN", "Rank Twice", "Naive")
-group_aggregate_2 <- c()
-
-# Individual colors for MNN family + Rank Features
-group_mnn      <- c("MNN")
-group_fastmnn  <- c("FastMNN")
-group_rank_feat <- c("Rank Features", "YuGene", "Angel")
-group_log_only <- c("Log Only", "Shambhala2, RUVg", "RNAbc")
-
-all_adjusters <- levels(data$adjuster_label)
-palette_map <- character(length(all_adjusters))
-names(palette_map) <- all_adjusters
-
-# ==============================================================================
-# Define Color Palette (Modern Scientific Aesthetic)
-# ==============================================================================
-
-# Custom professional palette
-color_vermilion <- "#D55E00" # Strong Highlight
-color_blue      <- "#7c3bb4ff" # Secondary Highlight
-color_purple    <- "#bfa6d5ff" # Tertiary Highlight
-color_slate     <- "#acb1b7ff" # Muted Gray 
-color_mnn       <- "#4292C6" # Deeper Blue (MNN)
-color_fastmnn   <- "#6ab7e0ff" # Light-Medium Blue (FastMNN)
-color_rank_feat <- "#BDD7E7" # Light Blue (Rank Features)
-color_log_only  <- "#636363" # Dark Grey (Log Only)
-color_fallback   <- "#F0E442" # Warning
-
-all_adjusters <- levels(data$adjuster_label)
-palette_map <- character(length(all_adjusters))
-names(palette_map) <- all_adjusters
-
-for (lbl in all_adjusters) {
-  if (lbl %in% group_highlight_1) {
-    palette_map[lbl] <- color_vermilion
-  } else if (lbl %in% group_highlight_2) {
-    palette_map[lbl] <- color_blue
-  } else if (lbl %in% group_aggregate_1) {
-    palette_map[lbl] <- color_slate
-  } else if (lbl %in% group_aggregate_2) {
-    palette_map[lbl] <- color_sky
-  } else if (lbl %in% group_mnn) {
-    palette_map[lbl] <- color_mnn
-  } else if (lbl %in% group_fastmnn) {
-    palette_map[lbl] <- color_fastmnn
-  } else if (lbl %in% group_rank_feat) {
-    palette_map[lbl] <- color_rank_feat
-  } else if (lbl %in% group_log_only) {
-    palette_map[lbl] <- color_log_only
-  } else {
-    palette_map[lbl] <- color_fallback
+compute_interaction_embeddings <- function(data_file) {
+  classifier_labels_map <- c(
+    "rda" = "RDA", "logistic" = "LR", "elasticnet" = "ENet",
+    "svm" = "SVM", "rf" = "RF", "knn" = "KNN",
+    "xgboost" = "XGB", "nnet" = "NN", "shrinkageLDA" = "RDA"
+  )
+  calc_hl <- function(x) {
+    x <- x[!is.na(x)]
+    if (length(x) == 0) return(NA_real_)
+    median(outer(x, x, "+") / 2)
   }
+  raw <- read.csv(data_file, stringsAsFactors = FALSE) %>%
+    mutate(across(c(adjuster, classifier), trimws)) %>%
+    filter(metric == "mcc", !is.na(value),
+           adjuster != "within_study_cv",
+           !classifier %in% "logistic")
+  raw$adjuster_label <- if (exists("format_adjuster_label")) {
+    sapply(raw$adjuster, format_adjuster_label)
+  } else {
+    raw$adjuster
+  }
+  raw$classifier_label <- ifelse(
+    raw$classifier %in% names(classifier_labels_map),
+    classifier_labels_map[raw$classifier], raw$classifier
+  )
+  centers <- raw %>%
+    group_by(adjuster_label) %>%
+    summarise(center = calc_hl(value), .groups = "drop")
+  wide <- raw %>%
+    group_by(adjuster_label, classifier_label) %>%
+    summarise(avg_mcc = mean(value), .groups = "drop") %>%
+    left_join(centers, by = "adjuster_label") %>%
+    mutate(mcc_diff = avg_mcc - center) %>%
+    select(adjuster_label, classifier_label, mcc_diff) %>%
+    pivot_wider(names_from = classifier_label, values_from = mcc_diff, values_fill = 0)
+  mat <- as.matrix(wide[, -1])
+  rownames(mat) <- wide$adjuster_label
+  mat[is.na(mat)] <- 0
+  mat
 }
+
+mat_embed <- compute_interaction_embeddings(args$input)
+
+# Choose k via average silhouette width (k = 2..6)
+best_k <- 4L
+if (nrow(mat_embed) >= 4L && requireNamespace("cluster", quietly = TRUE)) {
+  k_range <- seq(2L, min(6L, nrow(mat_embed) - 1L))
+  sil_scores <- vapply(k_range, function(k) {
+    set.seed(42L)
+    km  <- kmeans(mat_embed, centers = k, nstart = 25L)
+    sil <- cluster::silhouette(km$cluster, dist(mat_embed))
+    mean(sil[, 3])
+  }, numeric(1))
+  best_k <- k_range[which.max(sil_scores)]
+}
+set.seed(42L)
+km_result      <- kmeans(mat_embed, centers = best_k, nstart = 25L)
+adjuster_cluster <- km_result$cluster  # named integer vector, names = adjuster_label
+
+cluster_colors <- RColorBrewer::brewer.pal(max(3L, best_k), "Dark2")[seq_len(best_k)]
+
+all_adjusters <- levels(data$adjuster_label)
+palette_map <- setNames(
+  vapply(all_adjusters, function(lbl) {
+    if (lbl %in% names(adjuster_cluster)) cluster_colors[adjuster_cluster[[lbl]]] else "#F0E442"
+  }, character(1)),
+  all_adjusters
+)
 
 # ==============================================================================
 # Manual Boxplot Calculation (Logic from Snippet 2)
