@@ -15,6 +15,8 @@
 #   C2: Per-study deviation from the pooled beta.
 #   C3: Post-ComBat effect size after delta-reweighting.
 
+# pixi run Rscript scripts/make_figure1_mechanism.R -i data/TB_real_data.RData -o outputs/diagnostics/hypothesis_tests/figure1_mechanism.png --utils /home/phr23/mitigation_impacts_on_classifiers/scripts/adjuster_plot_utils.R 2>&1
+
 suppressMessages({
   library(sva); library(matrixStats); library(ggplot2); library(cowplot)
   library(dplyr); library(ggridges); library(argparse)
@@ -150,6 +152,13 @@ corrected_gap_mat <- class_effect + interaction_mat / sqrt(pmax(delta_raw, 1e-8)
 proj_corrected_i  <- colSums(class_effect * corrected_gap_mat)                   / beta_norm2
 proj_dev_i        <- proj_raw_i - 1                               # deviation from β
 
+# Does the original Beta align with a new estimate of the class effect after ComBat correction?
+post_combat_B <- solve(crossprod(design), crossprod(design, t(dat - fitted)))
+post_combat_beta <- post_combat_B["class",]
+# Cosine similarity between original and post-ComBat beta
+cos_sim <- sum(class_effect * post_combat_beta) / (sqrt(sum(class_effect^2)) * sqrt(sum(post_combat_beta^2)))
+cat("Cosine similarity between original and post-ComBat beta:", round(cos_sim, 4), "\n")
+
 # Named color vector: same assignment as A/B (levels = rev(study_labels) → Set2 1:nb)
 study_cols <- setNames(rev(RColorBrewer::brewer.pal(nb, "Set2")), study_labels)
 
@@ -168,6 +177,19 @@ make_c_panel <- function(vals, title, ref_y, ylab = "") {
     theme(axis.text.x = element_text(angle = 35, hjust = 1, size = 8),
           plot.title  = element_text(face = "bold", size = 10))
 }
+
+# Does the original Beta align with a new estimate of the class effect after ComBat correction?
+# We must regress the fully adjusted ComBat data, not the residuals
+mod <- model.matrix(~ lab)
+combat_dat <- sva::ComBat(dat = dat, batch = bat, mod = mod)
+post_combat_B <- solve(crossprod(design), crossprod(design, t(combat_dat)))
+post_combat_beta <- post_combat_B["class",]
+
+# Cosine similarity between original and post-ComBat beta
+cos_sim <- sum(class_effect * post_combat_beta) / (sqrt(sum(class_effect^2)) * sqrt(sum(post_combat_beta^2)))
+cat("\nCosine similarity between original and post-ComBat beta:", round(cos_sim, 4), "\n\n")
+
+
 
 pC1 <- make_c_panel(proj_raw_i,      "C1  Observed Effect Size",   ref_y = 1,
                     ylab = "Projected onto β direction")

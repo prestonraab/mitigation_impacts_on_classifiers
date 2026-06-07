@@ -1,9 +1,9 @@
 #!/usr/bin/env Rscript
 # make_figure2_regularization.R
-# Three-panel figure showing how regularization ignores flipped genes.
+# Figure showing how regularization ignores flipped/distorted genes.
 
 suppressMessages({
-  library(sva); library(matrixStats); library(ggplot2); library(cowplot)
+  library(sva); library(matrixStats); library(ggplot2)
   library(dplyr); library(argparse)
 })
 
@@ -40,6 +40,11 @@ design <- cbind(model.matrix(~ -1 + bat), class = lab)
 B <- solve(crossprod(design), crossprod(design, t(dat)))
 initial_beta <- B["class",]
 
+# Calculate initial pooled variance and Cohen's d
+initial_fitted <- t(design %*% B)
+vp_initial <- rowMeans((dat - initial_fitted)^2)
+cohens_d <- initial_beta / sqrt(pmax(vp_initial, 1e-8))
+
 # Run supervised ComBat
 mod <- model.matrix(~ lab)
 combat_dat <- ComBat(dat = dat, batch = bat, mod = mod)
@@ -53,7 +58,7 @@ fitted <- t(design %*% post_combat_B)
 vp_adjusted <- rowMeans((combat_dat - fitted)^2)
 
 # RDA uses diagonal inverse-variance. 
-# Weight = beta / var
+# Weight = abs(beta) / var
 rda_weight <- abs(post_combat_beta) / vp_adjusted
 
 df <- data.frame(
@@ -62,62 +67,29 @@ df <- data.frame(
   post_beta = post_combat_beta,
   var_adj = vp_adjusted,
   rda_weight = rda_weight,
-  is_flipped = sign(initial_beta) != sign(post_combat_beta) & abs(initial_beta) > 0.5
+  cohens_d = cohens_d
 )
 
-# Identify a severely flipped gene for Panel C
-# We want one with a large positive initial beta, but very negative post beta
-flip_candidates <- df %>% 
-  filter(initial_beta > 1, post_beta < -5) %>%
-  arrange(post_beta)
-prime_gene <- flip_candidates$gene[1]
+df$new_cohens_d <- df$post_beta / sqrt(pmax(df$var_adj, 1e-8))
 
-# Panel A: Post-ComBat Beta vs Variance
-pA <- ggplot(df, aes(x = post_beta, y = log2(var_adj))) +
-  geom_point(aes(color = is_flipped), alpha = 0.5, size = 1) +
-  scale_color_manual(values = c("FALSE" = "grey60", "TRUE" = "#d73027"), guide="none") +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey30") +
-  labs(x = "Post-ComBat Effect Size (β*)", 
-       y = expression(Log[2]~"Adjusted Variance"),
-       title = "A  Variance Explosion for Flipped Genes") +
-  theme_classic(base_size = 11) +
-  theme(plot.title = element_text(face = "bold", size = 10))
+# Sort so high-weight points are plotted on top
+df <- df %>% arrange(rda_weight)
 
-# Panel B: Post-ComBat Beta vs RDA Weight
-pB <- ggplot(df, aes(x = post_beta, y = rda_weight)) +
-  geom_point(aes(color = is_flipped), alpha = 0.5, size = 1) +
-  scale_color_manual(values = c("FALSE" = "grey60", "TRUE" = "#d73027"), guide="none") +
-  geom_smooth(method = "loess", color = "black", linewidth = 0.8, se = FALSE) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey30") +
-  labs(x = "Post-ComBat Effect Size (β*)", 
-       y = "RDA Feature Weight (|β*| / Var*)",
-       title = "B  Classifier Ignores High-Variance Flips") +
-  coord_cartesian(ylim = c(0, quantile(df$rda_weight, 0.99, na.rm=TRUE))) +
-  theme_classic(base_size = 11) +
-  theme(plot.title = element_text(face = "bold", size = 10))
+pB <- ggplot(df, aes(x = cohens_d, y = new_cohens_d)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "grey70") +
+  geom_point(aes(color = rda_weight), alpha = 0.7, size = 1.2) +
+  scale_color_viridis_c(option = "magma", name = "RDA Feature Weight\n(|β*| / Var*)") +
+  labs(x = "Original Effect Size (Cohen's d)", 
+       y = "Post-ComBat Effect Size (Cohen's d)",
+       title = "Classifier Ignores Flipped Genes") +
+  coord_cartesian(xlim = quantile(df$cohens_d, c(0.005, 0.995), na.rm=TRUE),
+                  ylim = quantile(df$new_cohens_d, c(0.005, 0.995), na.rm=TRUE)) +
+  theme_classic(base_size = 13) +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        legend.position = "right")
 
-# Panel C: Boxplot of the prime gene
-expr_df <- data.frame(
-  expr = combat_dat[prime_gene, ],
-  batch = bat,
-  class = factor(lab, levels=c(0,1), labels=c("Control", "Active TB"))
-)
-
-pC <- ggplot(expr_df, aes(x = batch, y = expr, fill = class)) +
-  geom_boxplot(outlier.shape = NA, alpha=0.7) +
-  geom_point(position = position_jitterdodge(jitter.width=0.1), size=0.5, alpha=0.5, aes(color=class)) +
-  scale_fill_manual(values=c("Control"="#4e79a7", "Active TB"="#e07b39")) +
-  scale_color_manual(values=c("Control"="#4e79a7", "Active TB"="#e07b39"), guide="none") +
-  labs(x = "Training Cohort", y = "Adjusted Expression", 
-       title = sprintf("C  Why it's ignored: Gene '%s'", prime_gene),
-       fill = "Status") +
-  theme_classic(base_size = 11) +
-  theme(plot.title = element_text(face = "bold", size = 10),
-        legend.position = "bottom")
-
-top_row <- plot_grid(pA, pB, ncol = 2, align = "h")
-fig2 <- plot_grid(top_row, pC, ncol = 1, rel_heights = c(1, 1.1))
-
-ggsave(out_png, fig2, width = 9, height = 7, dpi = 150)
-ggsave(out_pdf, fig2, width = 9, height = 7)
+ggsave(out_png, pB, width = 7, height = 5, dpi = 150)
+ggsave(out_pdf, pB, width = 7, height = 5)
 cat("->", out_png, "\n")

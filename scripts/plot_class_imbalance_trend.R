@@ -140,7 +140,6 @@ adjuster_label_map <- c(
   "combat_sup"   = "ComBat (Supervised)",
   "coconut"      = "COCONUT (Supervised)",
   "recombat"     = "reComBat (Unsupervised)",
-  "recombat_sup" = "reComBat (Supervised)",
   "rankin"       = "Rank-In"
 )
 
@@ -148,7 +147,7 @@ adjuster_level_order <- c(
   "Unadjusted", "Naive", "RankTwice",
   "ComBat (Unsupervised)", "ComBat (Supervised)",
   "COCONUT (Supervised)",
-  "reComBat (Unsupervised)", "reComBat (Supervised)",
+  "reComBat (Unsupervised)",
   "Rank-In"
 )
 
@@ -160,7 +159,6 @@ adjuster_colors <- c(
   "ComBat (Supervised)"    = "#33A02C",
   "COCONUT (Supervised)"   = "#FF7F00",
   "reComBat (Unsupervised)"= "#A6CEE3",
-  "reComBat (Supervised)"  = "#2CA25F",
   "Rank-In"                = "#B15928"
 )
 
@@ -184,7 +182,7 @@ p <- ggplot(plot_data, aes(x = imbalance_pct_num, y = mean_rank, color = adjuste
   geom_point(size = 3) +
   # Reverse y-axis so rank 1 is at top
   scale_y_reverse(
-    breaks = seq(1, 15, by = 1)
+    breaks = seq(1, 45, by = 5)
   ) +
   scale_x_reverse(
     breaks = sort(unique(plot_data$imbalance_pct_num), decreasing = TRUE),
