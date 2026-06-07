@@ -138,6 +138,7 @@ adjuster_label_map <- c(
   "rank_twice"   = "RankTwice",
   "combat"       = "ComBat (Unsupervised)",
   "combat_sup"   = "ComBat (Supervised)",
+  "combat_mean_sup" = "ComBat Mean (Sup.)",
   "coconut"      = "COCONUT (Supervised)",
   "recombat"     = "reComBat (Unsupervised)",
   "rankin"       = "Rank-In"
@@ -145,7 +146,7 @@ adjuster_label_map <- c(
 
 adjuster_level_order <- c(
   "Unadjusted", "Naive", "RankTwice",
-  "ComBat (Unsupervised)", "ComBat (Supervised)",
+  "ComBat (Unsupervised)", "ComBat (Supervised)", "ComBat Mean (Sup.)",
   "COCONUT (Supervised)",
   "reComBat (Unsupervised)",
   "Rank-In"
@@ -157,6 +158,7 @@ adjuster_colors <- c(
   "RankTwice"              = "#6A3D9A",
   "ComBat (Unsupervised)"  = "#1F78B4",
   "ComBat (Supervised)"    = "#33A02C",
+  "ComBat Mean (Sup.)"     = "#B2DF8A",
   "COCONUT (Supervised)"   = "#FF7F00",
   "reComBat (Unsupervised)"= "#A6CEE3",
   "Rank-In"                = "#B15928"

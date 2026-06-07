@@ -10,6 +10,7 @@ format_adjuster_label <- function(adjuster_name) {
   if (adjuster_name == "npn") return("NPN")
   if (adjuster_name == "combat") return("ComBat")
   if (adjuster_name == "combat_sup") return("ComBat Sup.")
+  if (adjuster_name == "combat_mean_sup") return("ComBat Mean Sup.")
   if (adjuster_name == "combat_mean") return("ComBat Mean")
   if (adjuster_name == "mnn") return("MNN")
   if (adjuster_name == "fast_mnn") return("FastMNN")
