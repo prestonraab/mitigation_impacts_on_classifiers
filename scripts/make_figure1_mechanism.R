@@ -198,6 +198,17 @@ pC3 <- make_c_panel(proj_corrected_i,"C3  Post-ComBat Effect Size", ref_y = 1)
 
 bottom_row <- plot_grid(pC1, pC2, pC3, nrow = 1)
 
+# Does the original Beta align with a new estimate of the class effect after ComBat correction?
+# We must regress the fully adjusted ComBat data, not the residuals
+mod <- model.matrix(~ lab)
+combat_dat <- sva::ComBat(dat = dat, batch = bat, mod = mod)
+post_combat_B <- solve(crossprod(design), crossprod(design, t(combat_dat)))
+post_combat_beta <- post_combat_B["class",]
+
+# Cosine similarity between original and post-ComBat beta
+cos_sim <- sum(class_effect * post_combat_beta) / (sqrt(sum(class_effect^2)) * sqrt(sum(post_combat_beta^2)))
+cat("\nCosine similarity between original and post-ComBat beta:", round(cos_sim, 4), "\n\n")
+
 # ── Assemble ─────────────────────────────────────────────────────────────────
 top_row <- plot_grid(pA, pB, ncol = 2, labels = NULL)
 fig1    <- plot_grid(top_row, bottom_row, ncol = 1, rel_heights = c(1, 0.9))
