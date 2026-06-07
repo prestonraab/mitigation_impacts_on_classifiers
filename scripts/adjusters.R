@@ -327,6 +327,16 @@ BATCH_CORRECTION_METHODS <- list(
          dat_test_corrected = combined_bc[, (ncol(dat_corrected) + 1):ncol(combined_bc)])
   },
 
+  combat_mean_sup = function(dat, dat_test, batch, group, ...) {
+    dat_corrected <- sva::ComBat(dat, batch = batch, mod = model.matrix(~group), mean.only = TRUE)
+    combined      <- cbind(dat_corrected, dat_test)
+    combined_bc   <- sva::ComBat(combined,
+                            batch     = c(rep(1L, ncol(dat_corrected)), rep(2L, ncol(dat_test))),
+                            mod       = NULL, ref.batch = 1L)
+    list(dat_corrected      = dat_corrected,
+         dat_test_corrected = combined_bc[, (ncol(dat_corrected) + 1):ncol(combined_bc)])
+  },
+
   mnn = function(dat, dat_test, batch, ...) {
     suppressMessages({ library(batchelor, quietly = TRUE); library(SummarizedExperiment, quietly = TRUE) })
     test_id      <- max(batch) + 1L
